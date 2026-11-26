@@ -220,3 +220,5 @@ Bottleneck: UUID generation (0.4s), not parsing.
 ## Demo Data
 
 A sample CSV file `demo_data.csv` is included in the repository with 6 transactions across 3 categories for quick testing.
+
+
