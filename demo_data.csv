@@ -1,0 +1,7 @@
+amount,category,date,is_income
+15000,Salary,2024-01-01,true
+500,Food,2024-01-05,false
+200,Transport,2024-01-07,false
+1000,Entertainment,2024-01-10,false
+300,Food,2024-01-12,false
+150,Transport,2024-01-15,false
