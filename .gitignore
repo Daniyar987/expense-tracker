@@ -26,3 +26,6 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Temporary test files
+test_check.csv
