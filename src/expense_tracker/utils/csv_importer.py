@@ -7,10 +7,9 @@ complexity regardless of file size. Invalid rows are skipped and logged.
 import csv
 import logging
 from collections.abc import Generator
+from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import TextIO
-
-from datetime import date
 
 from expense_tracker.domain.exceptions import InvalidAmountError
 from expense_tracker.domain.models import Transaction

@@ -48,9 +48,7 @@ class ExpenseService:
         report: dict[str, Decimal] = {}
         for tx in self._transaction_repository.get_all():
             if not tx.is_income:
-                report[tx.category] = (
-                    report.get(tx.category, Decimal("0")) + tx.amount
-                )
+                report[tx.category] = report.get(tx.category, Decimal("0")) + tx.amount
         return report
 
     def get_transaction_by_id(self, transaction_id: str) -> Transaction | None:
@@ -92,21 +90,28 @@ class ExpenseService:
 
         Returns None if no budget is set.
         """
+        from datetime import timedelta
+
         budget = self.get_budget(category, month)
         if budget is None:
             return None
 
         # Get all expenses for this category in the month
         from_date = date.fromisoformat(f"{month}-01")
-        # Calculate last day of month
+
+        # Calculate last day of month (first day of next month minus 1 day)
         if month.endswith("-12"):
-            to_date = date.fromisoformat(f"{int(month[:4]) + 1}-01-01")
+            next_month_first = date(int(month[:4]) + 1, 1, 1)
         else:
             next_month = int(month[5:7]) + 1
-            to_date = date.fromisoformat(f"{month[:4]}-{next_month:02d}-01")
+            next_month_first = date(int(month[:4]), next_month, 1)
 
-        transactions = self._transaction_repository.get_by_date_range(from_date, to_date)
-        
+        to_date = next_month_first - timedelta(days=1)
+
+        transactions = self._transaction_repository.get_by_date_range(
+            from_date, to_date
+        )
+
         total_expenses = Decimal("0")
         for tx in transactions:
             if tx.category == category and not tx.is_income:

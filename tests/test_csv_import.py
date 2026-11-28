@@ -1,7 +1,6 @@
 """Extended tests for CSV import with various invalid inputs."""
 
 import io
-import pytest
 
 from expense_tracker.utils.csv_importer import import_csv_safely
 
@@ -64,3 +63,17 @@ def test_csv_import_mixed_valid_and_invalid() -> None:
     categories: list[str] = [tx.category for tx in transactions]
     assert "Food" in categories
     assert "Transport" in categories
+
+
+def test_csv_import_same_file_twice() -> None:
+    """Importing the same file twice creates separate transactions."""
+    csv_data = "id,amount,category,date,is_income\n,500,Food,2024-01-15,False\n"
+
+    transactions1 = import_csv_safely(io.StringIO(csv_data))
+    transactions2 = import_csv_safely(io.StringIO(csv_data))
+
+    # Both imports succeed, but create separate transactions
+    assert len(transactions1) == 1
+    assert len(transactions2) == 1
+    # IDs are different (new UUID generated each time)
+    assert transactions1[0].id != transactions2[0].id

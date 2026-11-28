@@ -6,9 +6,7 @@ import pytest
 
 from expense_tracker.application.service import ExpenseService
 from expense_tracker.domain.exceptions import InvalidAmountError
-from expense_tracker.domain.models import Budget, Transaction
-from expense_tracker.storage.sqlite_repo import SQLiteBudgetRepository, SQLiteTransactionRepository
-
+from expense_tracker.domain.models import Budget
 
 # ============================================================================
 # Budget model tests
@@ -185,3 +183,71 @@ def test_budget_report_excludes_income(
     report = service.get_budget_report("2024-01")
     assert report["Salary"]["spent"] == Decimal("0")
     assert report["Salary"]["remaining"] == Decimal("5000")
+
+
+def test_budget_month_boundaries(service: ExpenseService) -> None:
+    """Transactions on month boundaries are counted in correct month."""
+    from datetime import date
+
+    service.set_budget("Food", "2024-01", Decimal("1000"))
+
+    # Last day of January
+    service.add_transaction(
+        amount=Decimal("500"),
+        category="Food",
+        transaction_date=date(2024, 1, 31),
+        is_income=False,
+    )
+
+    # First day of February
+    service.add_transaction(
+        amount=Decimal("300"),
+        category="Food",
+        transaction_date=date(2024, 2, 1),
+        is_income=False,
+    )
+
+    # January budget should only count the first transaction
+    remaining_jan = service.get_remaining_budget("Food", "2024-01")
+    assert remaining_jan == Decimal("500")
+
+    # February has no budget set
+    remaining_feb = service.get_remaining_budget("Food", "2024-02")
+    assert remaining_feb is None
+
+
+def test_delete_category_with_transactions(service: ExpenseService) -> None:
+    """Deleting all transactions of a category works correctly."""
+    from datetime import date
+
+    service.add_transaction(
+        amount=Decimal("500"),
+        category="Food",
+        transaction_date=date(2024, 1, 15),
+        is_income=False,
+    )
+    service.add_transaction(
+        amount=Decimal("300"),
+        category="Food",
+        transaction_date=date(2024, 1, 20),
+        is_income=False,
+    )
+    service.add_transaction(
+        amount=Decimal("200"),
+        category="Transport",
+        transaction_date=date(2024, 1, 15),
+        is_income=False,
+    )
+
+    # Delete all Food transactions
+    all_txs = service.get_all_transactions()
+    food_txs = [tx for tx in all_txs if tx.category == "Food"]
+    for tx in food_txs:
+        service.delete_transaction(tx.id)
+
+    # No Food transactions left, Transport remains
+    remaining = service.get_all_transactions()
+    food_remaining = [tx for tx in remaining if tx.category == "Food"]
+    transport_remaining = [tx for tx in remaining if tx.category == "Transport"]
+    assert len(food_remaining) == 0
+    assert len(transport_remaining) == 1

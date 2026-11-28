@@ -2,6 +2,7 @@
 
 import csv
 import io
+
 from expense_tracker.domain.models import Transaction
 
 
@@ -18,12 +19,14 @@ def export_transactions_to_csv(transactions: list[Transaction]) -> str:
 
     # Data rows
     for tx in transactions:
-        writer.writerow([
-            tx.id,
-            str(tx.amount),
-            tx.category,
-            tx.date.isoformat(),
-            tx.is_income,
-        ])
+        writer.writerow(
+            [
+                tx.id,
+                str(tx.amount),
+                tx.category,
+                tx.date.isoformat(),
+                tx.is_income,
+            ]
+        )
 
     return output.getvalue()

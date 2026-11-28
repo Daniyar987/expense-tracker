@@ -11,7 +11,3 @@ class InvalidAmountError(ExpenseTrackerError):
 
 class InvalidRowError(ExpenseTrackerError):
     """Raised when a CSV row cannot be parsed."""
-
-
-class CategoryNotFoundError(ExpenseTrackerError):
-    """Raised when category does not exist."""

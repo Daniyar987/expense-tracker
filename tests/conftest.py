@@ -5,7 +5,10 @@ from pathlib import Path
 import pytest
 
 from expense_tracker.application.service import ExpenseService
-from expense_tracker.storage.sqlite_repo import SQLiteBudgetRepository, SQLiteTransactionRepository
+from expense_tracker.storage.sqlite_repo import (
+    SQLiteBudgetRepository,
+    SQLiteTransactionRepository,
+)
 
 
 @pytest.fixture
@@ -30,6 +33,8 @@ def budget_repo(db_path: str) -> SQLiteBudgetRepository:
 
 
 @pytest.fixture
-def service(in_memory_repo: SQLiteTransactionRepository, budget_repo: SQLiteBudgetRepository) -> ExpenseService:
+def service(
+    in_memory_repo: SQLiteTransactionRepository, budget_repo: SQLiteBudgetRepository
+) -> ExpenseService:
     """Service wired to both repositories."""
     return ExpenseService(in_memory_repo, budget_repo)

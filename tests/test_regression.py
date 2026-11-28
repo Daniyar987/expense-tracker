@@ -6,8 +6,6 @@ and does not crash on malformed data.
 
 import io
 
-import pytest
-
 from expense_tracker.application.service import ExpenseService
 
 
@@ -26,6 +24,7 @@ def test_csv_import_is_atomic(service: ExpenseService) -> None:
     file = io.StringIO(csv_data)
 
     from expense_tracker.utils.csv_importer import import_csv_safely
+
     transactions = import_csv_safely(file)
 
     # Invalid row is skipped, valid rows are imported
@@ -47,6 +46,7 @@ def test_csv_import_success(service: ExpenseService) -> None:
     file = io.StringIO(csv_data)
 
     from expense_tracker.utils.csv_importer import import_csv_safely
+
     transactions = import_csv_safely(file)
 
     assert len(transactions) == 3

@@ -17,9 +17,9 @@ from expense_tracker.utils.csv_importer import import_csv_safely
 def generate_large_csv(path: str, num_rows: int = 50000) -> None:
     """Generate a CSV file with many rows for profiling."""
     with open(path, "w", encoding="utf-8") as f:
-        f.write("amount,category,date,is_income\n")
+        f.write("id,amount,category,date,is_income\n")
         for i in range(num_rows):
-            f.write(f"100.50,Category{i % 10},2024-01-15,false\n")
+            f.write(f",{100.50},Category{i % 10},2024-01-15,false\n")
 
 
 def profile_import() -> None:

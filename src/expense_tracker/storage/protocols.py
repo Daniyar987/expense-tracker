@@ -1,10 +1,9 @@
 """Storage protocols: contracts implemented by concrete repositories."""
 
+from datetime import date
 from typing import Protocol
 
 from expense_tracker.domain.models import Budget, Transaction
-
-from datetime import date
 
 
 class TransactionRepository(Protocol):
@@ -29,7 +28,7 @@ class TransactionRepository(Protocol):
     def get_by_date_range(
         self, from_date: date | None, to_date: date | None
     ) -> list[Transaction]: ...
-    
+
 
 class BudgetRepository(Protocol):
     """Contract for budget storage.

@@ -43,7 +43,7 @@ def test_cli_e2e_add_list_report(tmp_path: Path) -> None:
     # List should show 3 transactions
     r4 = run_cli(["list"], db)
     assert r4.returncode == 0, r4.stderr
-    lines = [l for l in r4.stdout.strip().splitlines() if l.strip()]
+    lines = [line for line in r4.stdout.strip().splitlines() if line.strip()]
     assert len(lines) == 3
 
     # Report should aggregate by category
@@ -59,7 +59,16 @@ def test_cli_e2e_budget_workflow(tmp_path: Path) -> None:
 
     # Set budget
     r1 = run_cli(
-        ["budget", "set", "--category", "Food", "--month", "2024-01", "--limit", "1000"],
+        [
+            "budget",
+            "set",
+            "--category",
+            "Food",
+            "--month",
+            "2024-01",
+            "--limit",
+            "1000",
+        ],
         db,
     )
     assert r1.returncode == 0, r1.stderr

@@ -9,14 +9,13 @@ from pydantic import BaseModel, Field
 
 from expense_tracker.application.service import ExpenseService
 from expense_tracker.domain.exceptions import ExpenseTrackerError
-from expense_tracker.domain.models import Budget, Transaction
+from expense_tracker.domain.models import Transaction
 from expense_tracker.storage.sqlite_repo import (
     SQLiteTransactionRepository,
     get_db_path,
 )
 from expense_tracker.utils.logging_config import setup_logging
 
-setup_logging()
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Expense Tracker API", version="1.0.0")
@@ -29,7 +28,9 @@ def get_service() -> ExpenseService:
     """Return the shared service, creating it on first use."""
     global _service
     if _service is None:
+        setup_logging()
         from expense_tracker.storage.sqlite_repo import SQLiteBudgetRepository
+
         _service = ExpenseService(
             SQLiteTransactionRepository(get_db_path()),
             SQLiteBudgetRepository(get_db_path()),
@@ -77,7 +78,9 @@ def _to_out(tx: Transaction) -> TransactionOut:
 class TransactionUpdate(BaseModel):
     """Schema for updating a transaction. All fields are optional."""
 
-    amount: str | None = Field(default=None, description="Amount as string for precision")
+    amount: str | None = Field(
+        default=None, description="Amount as string for precision"
+    )
     category: str | None = None
     date: str | None = Field(default=None, description="YYYY-MM-DD")
     is_income: bool | None = None
@@ -153,13 +156,16 @@ def get_report(
     parsed_from = date.fromisoformat(from_date) if from_date else None
     parsed_to = date.fromisoformat(to_date) if to_date else None
     transactions = get_service().get_transactions_by_date_range(parsed_from, parsed_to)
-    
+
     report: dict[str, Decimal] = {}
     for tx in transactions:
         if not tx.is_income:
             report[tx.category] = report.get(tx.category, Decimal("0")) + tx.amount
-    
-    return [ReportOut(category=cat, total=str(total)) for cat, total in sorted(report.items())]
+
+    return [
+        ReportOut(category=cat, total=str(total))
+        for cat, total in sorted(report.items())
+    ]
 
 
 @app.delete("/transactions/{transaction_id}")
@@ -173,7 +179,9 @@ def delete_transaction(transaction_id: str) -> dict[str, str]:
 
 
 @app.put("/transactions/{transaction_id}")
-def update_transaction(transaction_id: str, update: TransactionUpdate) -> TransactionOut:
+def update_transaction(
+    transaction_id: str, update: TransactionUpdate
+) -> TransactionOut:
     """Update an existing transaction."""
     existing = get_service().get_transaction_by_id(transaction_id)
     if existing is None:
@@ -182,7 +190,9 @@ def update_transaction(transaction_id: str, update: TransactionUpdate) -> Transa
     try:
         amount = Decimal(update.amount) if update.amount else existing.amount
     except InvalidOperation as exc:
-        raise HTTPException(status_code=400, detail=f"Invalid amount: {update.amount}") from exc
+        raise HTTPException(
+            status_code=400, detail=f"Invalid amount: {update.amount}"
+        ) from exc
 
     category = update.category if update.category else existing.category
     tx_date = date.fromisoformat(update.date) if update.date else existing.date
@@ -205,14 +215,18 @@ def set_budget(data: BudgetCreate) -> BudgetOut:
     try:
         limit = Decimal(data.limit)
     except InvalidOperation as exc:
-        raise HTTPException(status_code=400, detail=f"Invalid limit: {data.limit}") from exc
+        raise HTTPException(
+            status_code=400, detail=f"Invalid limit: {data.limit}"
+        ) from exc
 
     try:
         budget = get_service().set_budget(data.category, data.month, limit)
     except ExpenseTrackerError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    return BudgetOut(category=budget.category, month=budget.month, limit=str(budget.limit))
+    return BudgetOut(
+        category=budget.category, month=budget.month, limit=str(budget.limit)
+    )
 
 
 @app.get("/budgets/report/{month}", response_model=list[BudgetReportItem])
@@ -238,10 +252,33 @@ def budget_report(month: str) -> list[BudgetReportItem]:
     return result
 
 
+@app.get("/budgets/{month}", response_model=list[BudgetOut])
+def get_budgets_by_month(month: str) -> list[BudgetOut]:
+    """Get all budgets for a specific month."""
+    budgets = get_service()._budget_repository.get_all_by_month(month)
+    return [
+        BudgetOut(category=b.category, month=b.month, limit=str(b.limit))
+        for b in budgets
+    ]
+
+
 @app.get("/budgets/{category}/{month}", response_model=BudgetOut)
 def get_budget(category: str, month: str) -> BudgetOut:
     """Get budget for a specific category and month."""
     budget = get_service().get_budget(category, month)
     if budget is None:
         raise HTTPException(status_code=404, detail="Budget not found")
-    return BudgetOut(category=budget.category, month=budget.month, limit=str(budget.limit))
+    return BudgetOut(
+        category=budget.category, month=budget.month, limit=str(budget.limit)
+    )
+
+
+@app.delete("/budgets/{category}/{month}")
+def delete_budget(category: str, month: str) -> dict[str, str]:
+    """Delete a budget for a specific category and month."""
+    budget = get_service().get_budget(category, month)
+    if budget is None:
+        raise HTTPException(status_code=404, detail="Budget not found")
+
+    get_service()._budget_repository.delete(category, month)
+    return {"status": "deleted", "category": category, "month": month}
