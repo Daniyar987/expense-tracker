@@ -42,12 +42,13 @@ uv run mypy src tests
 
 # Run linter
 uv run ruff check src tests
+```
 
+## Usage
 
-Usage
+### CLI Interface
 
-CLI Interface
-
+```bash
 # Add a transaction
 uv run expense-cli add --amount 500 --category Food
 
@@ -65,96 +66,90 @@ uv run expense-cli budget get --category Food --month 2024-01
 
 # Export to CSV
 uv run expense-cli export output.csv --from 2024-01-01 --to 2024-01-31
+```
 
-
-API Interface
+### API Interface
 
 Start the API server:
 
+```bash
 uv run uvicorn expense_tracker.interfaces.api:app --reload
+```
 
 Open Swagger UI at http://localhost:8000/docs to explore and test all endpoints interactively.
 
 Create transaction:
+
+```bash
 curl -X POST http://localhost:8000/transactions \
   -H "Content-Type: application/json" \
   -d '{"amount": "500", "category": "Food", "date": "2024-01-15", "is_income": false}'
+```
 
 Set budget:
+
+```bash
 curl -X POST http://localhost:8000/budgets \
   -H "Content-Type: application/json" \
   -d '{"category": "Food", "month": "2024-01", "limit": "1000"}'
+```
 
+## Environment Variables
 
-Environment Variables
-EXPENSE_DB_PATH (default: expenses.db) — Path to SQLite database file.
-EXPENSE_LOG_DIR (default: home directory) — Directory for log files.
+- `EXPENSE_DB_PATH` (default: `expenses.db`) — Path to SQLite database file.
+- `EXPENSE_LOG_DIR` (default: home directory) — Directory for log files.
 
+## Profiling
 
-Profiling
+Command: `uv run python profiling/profile_csv.py`
 
-Command: uv run python profiling/profile_csv.py
+- **Data size**: 50,000 rows, ~2.0 MB
+- **Results**:
+  - Total time: ~0.8 seconds
+  - Memory: O(1) during parsing (generator), ~5 MB for final list
+  - Hottest function: `Transaction.__post_init__` (validation)
 
-Data size: 50,000 rows, ~2.0 MB
+**Conclusion**: Generator-based CSV import processes 50,000 rows efficiently. Memory stays low because we parse lazily with `yield`, and only materialize the list at the end for atomicity. No optimization needed.
 
-Results:
-Total time: ~0.8 seconds
-Memory: O(1) during parsing (generator), ~5 MB for final list
-Hottest function: Transaction.__post_init__ (validation)
+## Limitations
 
-Conclusion: Generator-based CSV import processes 50,000 rows efficiently. Memory stays low because we parse lazily with yield, and only materialize the list at the end for atomicity. No optimization needed.
+- **Soft budget control**: Transactions are allowed even if they exceed the budget. The report shows `[OVER]` flag for categories where spending exceeds the limit.
+- **Single currency**: The application uses one currency (no exchange rates).
+- **No authentication**: API has no user authentication (suitable for personal use).
+- **SQLite only**: No support for PostgreSQL or other databases (but architecture allows adding them).
 
+## Course Topics Map
 
-Limitations
-Soft budget control: Transactions are allowed even if they exceed the budget. The report shows [OVER] flag for categories where spending exceeds the limit.
-Single currency: The application uses one currency (no exchange rates).
-No authentication: API has no user authentication (suitable for personal use).
-SQLite only: No support for PostgreSQL or other databases (but architecture allows adding them).
+- **Object model and OOP** — `domain/models.py`: frozen dataclass, invariants in `__post_init__`, `__eq__`, `__hash__`.
+- **Composition and polymorphism** — `storage/protocols.py`: `Protocol` for repositories, dependency injection in service.
+- **Collections and protocols** — `utils/csv_importer.py`: generator for O(1) memory, context managers for DB connections.
+- **Modules and packages** — `interfaces/cli.py` and `interfaces/api.py`: entry points, clear imports.
+- **Environments and dependencies** — `pyproject.toml`, `uv.lock`, `.env.example`.
+- **Typing and analysis** — All public functions annotated, `mypy` strict mode, `ruff` linter and formatter.
+- **Errors and resources** — `domain/exceptions.py`, validation in models, context managers for DB.
+- **Testing and debugging** — `tests/`: unit, integration, E2E, regression test for CSV import.
+- **Logging** — `utils/logging_config.py`, logging in CLI and API, separate from stdout.
+- **Profiling** — `profiling/profile_csv.py`: `cProfile` measurement with conclusion.
+- **Git** — Tag `v2.0.0`, feature branch, PR #1, self-review in `SELF_REVIEW.md`.
 
+## Bug Investigation
 
-Course Topics Map
+**Bug**: FastAPI route `/budgets/report/{month}` returned 404 instead of the budget report.
 
-Object model and OOP — domain/models.py: frozen dataclass, invariants in __post_init__, __eq__, __hash__.
+**Root cause**: The general route `/budgets/{category}/{month}` was registered before the specific route `/budgets/report/{month}`. FastAPI matched `"report"` as a category name and looked for a budget with `category="report"`, which didn't exist.
 
-Composition and polymorphism — storage/protocols.py: Protocol for repositories, dependency injection in service.
+**Fix**: Reordered route declarations so that specific routes (like `/budgets/report/{month}`) are registered before general routes (like `/budgets/{category}/{month}`).
 
-Collections and protocols — utils/csv_importer.py: generator for O(1) memory, context managers for DB connections.
+**Regression test**: Added `test_cli_e2e_budget_workflow` to verify the correct route is matched.
 
-Modules and packages — interfaces/cli.py and interfaces/api.py: entry points, clear imports.
+## Object Lifecycles
 
-Environments and dependencies — pyproject.toml, uv.lock, .env.example.
+- **Transaction**: Created in `ExpenseService.add_transaction()` → passed to `repository.add()` → saved to SQLite. Object is immutable (frozen), passed by reference.
+- **Budget**: Created in `ExpenseService.set_budget()` → passed to `budget_repository.add()`. On repeated call with same category + month, replaces the old one (`INSERT OR REPLACE`).
 
-Typing and analysis — All public functions annotated, mypy strict mode, ruff linter and formatter.
+## Example: References
 
-Errors and resources — domain/exceptions.py, validation in models, context managers for DB.
-
-Testing and debugging — tests/: unit, integration, E2E, regression test for CSV import.
-
-Logging — utils/logging_config.py, logging in CLI and API, separate from stdout.
-
-Profiling — profiling/profile_csv.py: cProfile measurement with conclusion.
-
-Git — Tag v2.0.0, feature branch, PR #1, self-review in SELF_REVIEW.md.
-
-
-Bug Investigation
-
-Bug: FastAPI route /budgets/report/{month} returned 404 instead of the budget report.
-
-Root cause: The general route /budgets/{category}/{month} was registered before the specific route /budgets/report/{month}. FastAPI matched "report" as a category name and looked for a budget with category="report", which didn't exist.
-
-Fix: Reordered route declarations so that specific routes (like /budgets/report/{month}) are registered before general routes (like /budgets/{category}/{month}).
-Regression test: Added test_cli_e2e_budget_workflow to verify the correct route is matched.
-
-
-Object Lifecycles
-
-Transaction: Created in ExpenseService.add_transaction() → passed to repository.add() → saved to SQLite. Object is immutable (frozen), passed by reference.
-
-Budget: Created in ExpenseService.set_budget() → passed to budget_repository.add(). On repeated call with same category+month, replaces the old one (INSERT OR REPLACE).
-
-
-Example: References
+```python
 tx = service.add_transaction(amount=100, category="Food")
 # tx.id = "abc123..."
 # tx.amount = Decimal("100")
@@ -164,3 +159,4 @@ repository.add(tx)
 
 # tx remains the same object (immutable, safe)
 assert tx.amount == Decimal("100")  # Cannot be accidentally modified
+```
