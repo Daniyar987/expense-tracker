@@ -253,3 +253,10 @@ class SQLiteBudgetRepository:
             month=row["month"],
             limit=Decimal(row["budget_limit"]),
         )
+
+
+    def close(self) -> None:
+        """Explicitly close the persistent connection (useful for tests)."""
+        if self._conn is not None:
+            self._conn.close()
+            self._conn = None

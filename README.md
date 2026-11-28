@@ -103,9 +103,9 @@ curl -X POST http://localhost:8000/budgets \
 
 Command: `uv run python profiling/profile_csv.py`
 
-- **Data size**: 50,000 rows, ~2.0 MB
+- **Data size**: 50,000 rows, ~1.67 MB
 - **Results**:
-  - Total time: ~0.8 seconds
+  - Total time: ~0.753 seconds
   - Memory: O(1) during parsing (generator), ~5 MB for final list
   - Hottest function: `Transaction.__post_init__` (validation)
 

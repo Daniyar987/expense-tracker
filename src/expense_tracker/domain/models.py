@@ -66,3 +66,12 @@ class Budget:
             )
         if not self.month or len(self.month) != 7 or self.month[4] != "-":
             raise ValueError("Month must be in YYYY-MM format")
+        try:
+            year = int(self.month[:4])
+            month = int(self.month[5:7])
+        except ValueError:
+            raise ValueError("Month must be in YYYY-MM format")
+        if not (1 <= month <= 12):
+            raise ValueError(f"Month must be between 01 and 12, got {month:02d}")
+        if year < 1:
+            raise ValueError(f"Year must be positive, got {year}")
