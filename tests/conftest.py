@@ -1,22 +1,35 @@
 """Pytest fixtures for the expense tracker tests."""
 
+from pathlib import Path
+
 import pytest
 
 from expense_tracker.application.service import ExpenseService
-from expense_tracker.storage.sqlite_repo import SQLiteTransactionRepository
+from expense_tracker.storage.sqlite_repo import SQLiteBudgetRepository, SQLiteTransactionRepository
 
 
 @pytest.fixture
-def in_memory_repo():
-    """In-memory SQLite repository for isolated tests.
+def db_path(tmp_path: Path) -> str:
+    """Temporary database file for tests.
 
-    This is a substitute for the real storage, allowing tests
-    to run without touching the filesystem.
+    Both repositories share the same file so they see each other's tables.
     """
-    return SQLiteTransactionRepository(":memory:")
+    return str(tmp_path / "test.db")
 
 
 @pytest.fixture
-def service(in_memory_repo):
-    """Service wired to in-memory repository."""
-    return ExpenseService(in_memory_repo)
+def in_memory_repo(db_path: str) -> SQLiteTransactionRepository:
+    """SQLite transaction repository for isolated tests."""
+    return SQLiteTransactionRepository(db_path)
+
+
+@pytest.fixture
+def budget_repo(db_path: str) -> SQLiteBudgetRepository:
+    """SQLite budget repository for isolated tests."""
+    return SQLiteBudgetRepository(db_path)
+
+
+@pytest.fixture
+def service(in_memory_repo: SQLiteTransactionRepository, budget_repo: SQLiteBudgetRepository) -> ExpenseService:
+    """Service wired to both repositories."""
+    return ExpenseService(in_memory_repo, budget_repo)

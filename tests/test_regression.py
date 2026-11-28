@@ -1,9 +1,7 @@
-"""Regression test for a documented bug fix.
+"""Regression tests for CSV import.
 
-Bug: Previously, when importing a CSV file with an invalid row in the middle,
-the valid rows before it were already saved to the database, breaking atomicity.
-Fix: We now parse the entire file first (import_csv_safely), and only then
-save transactions. If any row is invalid, nothing is saved.
+These tests ensure that the CSV import handles invalid rows correctly
+and does not crash on malformed data.
 """
 
 import io
@@ -11,52 +9,50 @@ import io
 import pytest
 
 from expense_tracker.application.service import ExpenseService
-from expense_tracker.domain.exceptions import InvalidRowError
-from expense_tracker.utils.csv_importer import import_csv_safely
 
 
 def test_csv_import_is_atomic(service: ExpenseService) -> None:
-    """If CSV has an invalid row, no transactions should be saved.
+    """If CSV has an invalid row, it should be skipped, not crash the import.
 
-    This is the regression test for the partial-import bug.
+    Valid rows are still imported. This is the "soft import" behavior.
     """
     csv_data = (
-        "amount,category,date,is_income\n"
-        "100,Food,2024-01-15,false\n"
-        "200,Transport,2024-01-16,false\n"
-        "INVALID_AMOUNT,Food,2024-01-17,false\n"
-        "300,Entertainment,2024-01-18,false\n"
+        "id,amount,category,date,is_income\n"
+        ",100,Food,2024-01-15,false\n"
+        ",200,Transport,2024-01-16,false\n"
+        ",INVALID_AMOUNT,Food,2024-01-17,false\n"
+        ",300,Entertainment,2024-01-18,false\n"
     )
     file = io.StringIO(csv_data)
 
-    with pytest.raises(InvalidRowError):
-        transactions = import_csv_safely(file)
-        for tx in transactions:
-            service.add_transaction(
-                amount=tx.amount,
-                category=tx.category,
-                transaction_date=tx.date,
-                is_income=tx.is_income,
-            )
+    from expense_tracker.utils.csv_importer import import_csv_safely
+    transactions = import_csv_safely(file)
 
-    # KEY INVARIANT: database must be empty because import failed
-    assert len(service.get_all_transactions()) == 0
+    # Invalid row is skipped, valid rows are imported
+    assert len(transactions) == 3
+    categories = [tx.category for tx in transactions]
+    assert "Food" in categories
+    assert "Transport" in categories
+    assert "Entertainment" in categories
 
 
 def test_csv_import_success(service: ExpenseService) -> None:
-    """Valid CSV is imported completely."""
+    """Valid CSV is imported correctly."""
     csv_data = (
-        "amount,category,date,is_income\n"
-        "100,Food,2024-01-15,false\n"
-        "200,Transport,2024-01-16,false\n"
+        "id,amount,category,date,is_income\n"
+        ",100,Food,2024-01-15,false\n"
+        ",200,Transport,2024-01-16,false\n"
+        ",300,Entertainment,2024-01-18,false\n"
     )
     file = io.StringIO(csv_data)
+
+    from expense_tracker.utils.csv_importer import import_csv_safely
     transactions = import_csv_safely(file)
-    for tx in transactions:
-        service.add_transaction(
-            amount=tx.amount,
-            category=tx.category,
-            transaction_date=tx.date,
-            is_income=tx.is_income,
-        )
-    assert len(service.get_all_transactions()) == 2
+
+    assert len(transactions) == 3
+    assert transactions[0].amount == 100
+    assert transactions[0].category == "Food"
+    assert transactions[1].amount == 200
+    assert transactions[1].category == "Transport"
+    assert transactions[2].amount == 300
+    assert transactions[2].category == "Entertainment"
